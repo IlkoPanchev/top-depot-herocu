@@ -1,0 +1,55 @@
+{
+  "id": 7,
+  "createdOn": "02-04-2021 14:01:05",
+  "updatedOn": "02-04-2021 14:01:34",
+  "customer": {
+    "id": 7,
+    "companyName": "Company",
+    "personName": "Person Edit",
+    "email": "ilko_panchev@mail.bg",
+    "isBlocked": false,
+    "address": {
+      "id": 7,
+      "region": "Sofia edit",
+      "city": "София",
+      "street": "Тинтява",
+      "phone": "0887586666"
+    }
+  },
+  "orderLineEntities": [
+    {
+      "id": 8,
+      "item": {
+        "id": 2,
+        "name": "Name_2",
+        "description": "description_2",
+        "price": 200.00,
+        "location": "Location_2",
+        "category": "laptops",
+        "supplier": "Supplier_2",
+        "isBlocked": false
+      },
+      "quantity": 1,
+      "subtotal": 200.00
+    },
+    {
+      "id": 7,
+      "item": {
+        "id": 1,
+        "name": "Name_1",
+        "description": "description_1",
+        "price": 100.00,
+        "location": "Location_1",
+        "category": "desctop",
+        "supplier": "Supplier_1",
+        "isBlocked": false
+      },
+      "quantity": 2,
+      "subtotal": 200.00
+    }
+  ],
+  "isClosed": true,
+  "isArchives": false,
+  "isDeleted": false,
+  "total": 400.00
+}

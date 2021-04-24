@@ -14,6 +14,8 @@ public class ItemViewBindingModel {
     @Expose
     private BigDecimal price;
     @Expose
+    private int stock;
+    @Expose
     private String location;
     @Expose
     private String category;
@@ -50,6 +52,15 @@ public class ItemViewBindingModel {
 
     public BigDecimal getPrice() {
         return price;
+    }
+
+    public int getStock() {
+        return stock;
+    }
+
+    public ItemViewBindingModel setStock(int stock) {
+        this.stock = stock;
+        return this;
     }
 
     public void setPrice(BigDecimal price) {

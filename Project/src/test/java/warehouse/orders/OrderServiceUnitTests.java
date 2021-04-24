@@ -20,12 +20,17 @@ import org.springframework.mock.web.MockMultipartFile;
 import warehouse.addresses.model.AddressEntity;
 import warehouse.addresses.model.AddressServiceModel;
 import warehouse.categories.model.CategoryEntity;
+import warehouse.categories.service.CategoryService;
+import warehouse.cloudinary.CloudinaryService;
 import warehouse.customers.model.CustomerEntity;
 import warehouse.customers.model.CustomerServiceModel;
 import warehouse.customers.service.CustomerService;
 import warehouse.items.model.ItemAddServiceModel;
 import warehouse.items.model.ItemEntity;
 import warehouse.items.model.ItemViewServiceModel;
+import warehouse.items.repository.ItemRepository;
+import warehouse.items.service.ItemService;
+import warehouse.items.service.impl.ItemServiceImpl;
 import warehouse.orderline.model.OrderLineAddServiceModel;
 import warehouse.orderline.model.OrderLineEntity;
 import warehouse.orderline.model.OrderLineViewServiceModel;
@@ -38,6 +43,7 @@ import warehouse.orders.service.OrderService;
 import warehouse.orders.service.impl.OrderServiceImpl;
 import warehouse.suppliers.model.SupplierEntity;
 import warehouse.suppliers.model.SupplierServiceModel;
+import warehouse.suppliers.service.SupplierService;
 import warehouse.suppliers.service.impl.SupplierServiceImpl;
 import warehouse.utils.file.FileIOUtil;
 import warehouse.utils.file.impl.FileIOUtilImpl;
@@ -46,6 +52,7 @@ import warehouse.utils.validation.ValidationUtil;
 
 import javax.persistence.EntityNotFoundException;
 import javax.validation.ConstraintViolationException;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.List;
@@ -60,142 +67,109 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 public class OrderServiceUnitTests {
 
-    private OrderService orderServiceToTest;
-    private OrderEntity orderEntity;
-    private OrderAddServiceModel orderAddServiceModel;
-    private OrderAddServiceModel existingOrderAddServiceModel;
+    private final String CATEGORY_NAME = "category_name";
+    private final String SUPPLIER_NAME = "supplier_name";
+    private final String ITEM_NAME = "item_name";
+
+    private ItemService itemServiceToTest;
+    private ItemEntity itemEntity;
+    private ItemAddServiceModel itemAddServiceModel;
+    private ItemAddServiceModel existingItemAddServiceModel;
+    private CategoryEntity categoryEntity;
+    private SupplierEntity supplierEntity;
     private Pageable pageable;
 
 
     @Mock
-    OrderRepository mockOrderRepository;
+    ItemRepository mockItemRepository;
+    @Mock
+    CloudinaryService mockCloudinaryService;
+    @Mock
+    CategoryService mockCategoryService;
+    @Mock
+    SupplierService mockSupplierService;
+    @Mock
+    OrderService mockOrderService;
     @Mock
     TimeBordersConvertor mockTimeBordersConvertor;
     @Mock
-    OrderLineService mockOrderLineService;
-    @Mock
-    CustomerService mockCustomerService;
-    @Mock
     ValidationUtil mockValidationUtil;
+    @Mock
+    OrderLineService mockOrderLineService;
 
     @BeforeEach
-    public void SetUp() {
-
-        this.orderServiceToTest = new OrderServiceImpl(mockOrderRepository,
-                new ModelMapper(),
+    public void SetUp(){
+        this.itemServiceToTest = new ItemServiceImpl(new ModelMapper(),
+                mockItemRepository,
+                mockCloudinaryService,
+                mockCategoryService,
+                mockSupplierService,
+                mockOrderService,
                 mockTimeBordersConvertor,
-                new Gson(),
-                new FileIOUtilImpl(),
-                mockOrderLineService,
-                mockCustomerService,
-                mockValidationUtil);
-        this.orderEntity = this.createExistingOrderEntity();
-        this.orderAddServiceModel = this.createOrderAddServiceModel();
+                mockValidationUtil,
+                mockOrderLineService);
+        this.itemEntity = this.createExistingItemEntity();
+        this.itemAddServiceModel = this.createItemAddServiceModel();
+        this.existingItemAddServiceModel = this.createExistingItemAddServiceModel();
+        this.categoryEntity = this.createExistingCategoryEntity();
+        this.supplierEntity = this.createExistingSupplierEntity();
         this.pageable = this.initPageable();
-        this.existingOrderAddServiceModel = this.createExistingOrderAddServiceModel();
     }
 
     @Test
     @MockitoSettings(strictness = Strictness.WARN)
-    public void testAddMethodWithValidServiceModel() throws Exception {
+    public void testAddMethodWithValidServiceModel() throws IOException {
 
-        when(mockOrderRepository.saveAndFlush(any(OrderEntity.class))).thenReturn(orderEntity);
-        when(mockValidationUtil.isValid(orderAddServiceModel)).thenReturn(true);
+        when(mockValidationUtil.isValid(any(ItemAddServiceModel.class))).thenReturn(true);
+        when(mockCategoryService.getAllCategoryNames()).thenReturn(List.of(CATEGORY_NAME));
+        when(mockCategoryService.findByName(any(String.class))).thenReturn(categoryEntity);
+        when(mockSupplierService.getAllSupplierNames()).thenReturn(List.of(SUPPLIER_NAME));
+        when(mockSupplierService.findByName(any(String.class))).thenReturn(supplierEntity);
+        when(mockItemRepository.saveAndFlush(any(ItemEntity.class))).thenReturn(itemEntity);
 
-        orderServiceToTest.addOrder(orderAddServiceModel);
+        itemServiceToTest.add(itemAddServiceModel);
 
-        ArgumentCaptor<OrderEntity> argument = ArgumentCaptor.forClass(OrderEntity.class);
-        Mockito.verify(mockOrderRepository, times(1)).saveAndFlush(argument.capture());
-        OrderEntity newOrderActual = argument.getValue();
+        ArgumentCaptor<ItemEntity> argument = ArgumentCaptor.forClass(ItemEntity.class);
+        Mockito.verify(mockItemRepository, times(1)).saveAndFlush(argument.capture());
+        ItemEntity itemEntityActual = argument.getValue();
 
-        Assertions.assertEquals(orderAddServiceModel.getTotal(), newOrderActual.getTotal());
-
+        Assertions.assertEquals(itemAddServiceModel.getName(), itemEntityActual.getName());
     }
 
     @Test
     @MockitoSettings(strictness = Strictness.WARN)
-    public void testAddMethodThrowsConstraintViolationException() throws Exception {
+    public void testAddMethodThrowsConstraintViolationException(){
 
-        when(mockValidationUtil.isValid(orderAddServiceModel)).thenReturn(false);
+        when(mockValidationUtil.isValid(any(ItemAddServiceModel.class))).thenReturn(false);
 
-        Assertions.assertThrows(ConstraintViolationException.class, () -> {
-            orderServiceToTest.addOrder(orderAddServiceModel);
-        });
+        Assertions.assertThrows(ConstraintViolationException.class, () ->  itemServiceToTest.add(itemAddServiceModel));
     }
 
     @Test
     @MockitoSettings(strictness = Strictness.WARN)
-    public void testFindAllPageableMethod() {
+    public void testFindAllPageableMethod(){
 
-        Page<OrderEntity> orderEntities = new PageImpl<>(List.of(orderEntity), pageable, 1L);
+        Page<ItemEntity> itemEntities = new PageImpl<>(List.of(itemEntity), pageable, 1L);
 
-        when(mockOrderRepository.findAllByDeletedFalse(any(Pageable.class))).thenReturn(orderEntities);
+        when(mockItemRepository.findAll(any(Pageable.class))).thenReturn(itemEntities);
 
-        Page<OrderViewServiceModel> orderViewServiceModels = this.orderServiceToTest.findAllPageable(pageable);
+        Page<ItemViewServiceModel> itemViewServiceModels = itemServiceToTest.findAllPageable(pageable);
 
-        Assertions.assertEquals(orderViewServiceModels.getTotalElements(), 1L);
-        Assertions.assertEquals(orderViewServiceModels.getTotalPages(), 1);
-
+        Assertions.assertEquals(itemViewServiceModels.getTotalElements(), 1L);
+        Assertions.assertEquals(itemViewServiceModels.getTotalPages(), 1);
     }
 
-    @Test
-    @MockitoSettings(strictness = Strictness.WARN)
-    public void testSearchMethod(){
+    @Test@MockitoSettings(strictness = Strictness.WARN)
+    public void testFindAllPageableUnblockedMethod(){
 
-        Page<OrderEntity> orderEntities = new PageImpl<>(List.of(orderEntity), pageable, 1L);
+        Page<ItemEntity> itemEntities = new PageImpl<>(List.of(itemEntity), pageable, 1L);
 
-        when(mockOrderRepository.search(any(String.class), any(Pageable.class))).thenReturn(orderEntities);
+        when(mockItemRepository.findAllByBlockedFalse(any(Pageable.class))).thenReturn(itemEntities);
 
-        Page<OrderViewServiceModel> orderViewServiceModels = this.orderServiceToTest.search("search", pageable);
+        Page<ItemViewServiceModel> itemViewServiceModels = itemServiceToTest.findAllPageableUnblocked(pageable);
 
-        Assertions.assertEquals(orderViewServiceModels.getTotalElements(), 1L);
-        Assertions.assertEquals(orderViewServiceModels.getTotalPages(), 1);
-
-
-    }
-
-    @Test
-    @MockitoSettings(strictness = Strictness.WARN)
-    public void testFindAllPageableOrderByUpdatedMethod() {
-
-        Page<OrderEntity> orderEntities = new PageImpl<>(List.of(orderEntity), pageable, 1L);
-
-        when(mockOrderRepository.findAllOrderByUpdatedOnDesc(any(Pageable.class))).thenReturn(orderEntities);
-
-        List<OrderViewServiceModel> orderViewServiceModels = orderServiceToTest.findAllPageableOrderByUpdated();
-
-        Assertions.assertEquals(orderViewServiceModels.size(), 1L);
-        Assertions.assertEquals(orderViewServiceModels.get(0).getTotal(), new BigDecimal("100"));
-
-    }
-
-    @Test
-    @MockitoSettings(strictness = Strictness.WARN)
-    public void testFindAllPageableCompletedOrderByUpdatedMethod() {
-
-        Page<OrderEntity> orderEntities = new PageImpl<>(List.of(orderEntity), pageable, 1L);
-
-        when(mockOrderRepository.findAllCompletedOrdersByUpdatedOnDesc(any(Pageable.class))).thenReturn(orderEntities);
-
-        List<OrderViewServiceModel> orderViewServiceModels = orderServiceToTest.findAllPageableCompletedOrderByUpdated();
-
-        Assertions.assertEquals(orderViewServiceModels.size(), 1L);
-        Assertions.assertEquals(orderViewServiceModels.get(0).getTotal(), new BigDecimal("100"));
-
-    }
-
-    @Test
-    @MockitoSettings(strictness = Strictness.WARN)
-    public void testFindAllPageableOrderByCreatedMethod() {
-
-        Page<OrderEntity> orderEntities = new PageImpl<>(List.of(orderEntity), pageable, 1L);
-
-        when(mockOrderRepository.findAllOrdersByCreatedOnDesc(any(Pageable.class))).thenReturn(orderEntities);
-
-        List<OrderViewServiceModel> orderViewServiceModels = orderServiceToTest.findAllPageableOrderByCreated();
-
-        Assertions.assertEquals(orderViewServiceModels.size(), 1L);
-        Assertions.assertEquals(orderViewServiceModels.get(0).getTotal(), new BigDecimal("100"));
+        Assertions.assertEquals(itemViewServiceModels.getTotalElements(), 1L);
+        Assertions.assertEquals(itemViewServiceModels.getTotalPages(), 1);
 
     }
 
@@ -203,12 +177,13 @@ public class OrderServiceUnitTests {
     @MockitoSettings(strictness = Strictness.WARN)
     public void testFindByIdMethod() {
 
-        when(mockOrderRepository.findById(any(Long.class))).thenReturn(Optional.of(orderEntity));
+        when(mockItemRepository.findById(any(Long.class))).thenReturn(Optional.of(itemEntity));
 
-        OrderViewServiceModel orderViewServiceModel = this.orderServiceToTest.findById(1L);
+        ItemViewServiceModel itemViewServiceModel = this.itemServiceToTest.findById(1L);
 
-        Assertions.assertEquals(orderViewServiceModel.getId(), 1L);
-        Assertions.assertEquals(orderViewServiceModel.getTotal(), new BigDecimal("100"));
+
+        Assertions.assertEquals(1L, itemViewServiceModel.getId());
+        Assertions.assertEquals(ITEM_NAME, itemViewServiceModel.getName());
 
 
     }
@@ -217,287 +192,176 @@ public class OrderServiceUnitTests {
     @MockitoSettings(strictness = Strictness.WARN)
     public void testFindByIdMethodThrowsEntityNotFoundException() {
 
-        when(mockOrderRepository.findById(any(Long.class))).thenThrow(EntityNotFoundException.class);
+        when(mockItemRepository.findById(any(Long.class))).thenThrow(EntityNotFoundException.class);
 
-        Assertions.assertThrows(EntityNotFoundException.class, () -> this.orderServiceToTest.findById(5L));
+        Assertions.assertThrows(EntityNotFoundException.class, () -> this.itemServiceToTest.findById(5L));
     }
 
     @Test
     @MockitoSettings(strictness = Strictness.WARN)
-    public void testEditOrderMethodWithValidServiceModel() throws Exception {
+    public void testSearchMethod(){
 
+        Page<ItemEntity> itemEntities = new PageImpl<>(List.of(itemEntity), pageable, 1L);
 
-        orderAddServiceModel.setTotal(new BigDecimal("1000"));
+        when(mockItemRepository.search(any(String.class), any(Pageable.class))).thenReturn(itemEntities);
 
-        when(mockValidationUtil.isValid(existingOrderAddServiceModel)).thenReturn(true);
-        when(mockOrderRepository.saveAndFlush(any(OrderEntity.class)))
-                .thenReturn(orderEntity);
+        Page<ItemViewServiceModel> itemViewServiceModels = itemServiceToTest.search(ITEM_NAME, pageable);
 
-        orderServiceToTest.editOrder(existingOrderAddServiceModel);
-
-        ArgumentCaptor<OrderEntity> argument = ArgumentCaptor.forClass(OrderEntity.class);
-        Mockito.verify(mockOrderRepository, times(1)).saveAndFlush(argument.capture());
-        OrderEntity newOrderActual = argument.getValue();
-
-        Assertions.assertEquals(existingOrderAddServiceModel.getId(), newOrderActual.getId());
-        Assertions.assertEquals(existingOrderAddServiceModel.getTotal(), newOrderActual.getTotal());
-
-
+        Assertions.assertEquals(itemViewServiceModels.getTotalElements(), 1L);
+        Assertions.assertEquals(itemViewServiceModels.getTotalPages(), 1);
     }
 
     @Test
     @MockitoSettings(strictness = Strictness.WARN)
-    public void testEditOrderMethodThrowsConstraintViolationException() throws Exception {
+    public void testSearchUnblockedMethod(){
 
-        orderAddServiceModel.setTotal(new BigDecimal("1000"));
+        Page<ItemEntity> itemEntities = new PageImpl<>(List.of(itemEntity), pageable, 1L);
 
-        when(mockValidationUtil.isValid(existingOrderAddServiceModel)).thenReturn(false);
+        when(mockItemRepository.searchUnblocked(any(String.class), any(Pageable.class))).thenReturn(itemEntities);
 
-        Assertions.assertThrows(ConstraintViolationException.class, () -> this.orderServiceToTest.editOrder(existingOrderAddServiceModel));
+        Page<ItemViewServiceModel> itemViewServiceModels = itemServiceToTest.searchUnblocked(ITEM_NAME, pageable);
 
-
+        Assertions.assertEquals(itemViewServiceModels.getTotalElements(), 1L);
+        Assertions.assertEquals(itemViewServiceModels.getTotalPages(), 1);
 
     }
 
     @Test
     @MockitoSettings(strictness = Strictness.WARN)
-    public void testCompleteOrderMethodWithValidServiceModel() throws Exception {
+    public void testItemExistMethodReturnFalse(){
 
-        when(mockValidationUtil.isValid(existingOrderAddServiceModel)).thenReturn(true);
-        when(mockOrderRepository.saveAndFlush(any(OrderEntity.class)))
-                .thenReturn(orderEntity);
+        Optional<ItemEntity> itemEntity = Optional.empty();
 
-        orderServiceToTest.completeOrder(existingOrderAddServiceModel);
+        when(mockItemRepository.findByName(any(String.class))).thenReturn(itemEntity);
 
-        ArgumentCaptor<OrderEntity> argument = ArgumentCaptor.forClass(OrderEntity.class);
-        Mockito.verify(mockOrderRepository, times(1)).saveAndFlush(argument.capture());
-        OrderEntity newOrderActual = argument.getValue();
+        Assertions.assertFalse(this.itemServiceToTest.itemExists(ITEM_NAME));
+    }
 
-        Assertions.assertEquals(existingOrderAddServiceModel.getId(), newOrderActual.getId());
-        Assertions.assertTrue(newOrderActual.isClosed());
+    @Test
+    @MockitoSettings(strictness = Strictness.WARN)
+    public void testCustomerExistMethodReturnTrue(){
 
+        Optional<ItemEntity> itemEntity = Optional.of(this.createExistingItemEntity());
+
+        when(mockItemRepository.findByName(any(String.class))).thenReturn(itemEntity);
+
+        Assertions.assertTrue(this.itemServiceToTest.itemExists(ITEM_NAME));
+    }
+
+    @Test
+    @MockitoSettings(strictness = Strictness.WARN)
+    public void testBlockMethod() {
+
+        when(mockItemRepository.findById(any(Long.class))).thenReturn(Optional.of(itemEntity));
+
+        itemServiceToTest.block(1L);
+
+        ArgumentCaptor<ItemEntity> argument = ArgumentCaptor.forClass(ItemEntity.class);
+        Mockito.verify(mockItemRepository, times(1)).saveAndFlush(argument.capture());
+        ItemEntity newItemActual = argument.getValue();
+
+        Assertions.assertTrue(newItemActual.isBlocked());
 
     }
 
     @Test
     @MockitoSettings(strictness = Strictness.WARN)
-    public void testCompleteOrderMethodThrowsConstraintViolationException() throws Exception {
+    public void testBlockMethodThrowsEntityNotFoundException() {
 
-        when(mockValidationUtil.isValid(existingOrderAddServiceModel)).thenReturn(false);
+        when(mockItemRepository.findById(any(Long.class))).thenReturn(Optional.empty());
 
-        Assertions.assertThrows(ConstraintViolationException.class, () -> this.orderServiceToTest.completeOrder(existingOrderAddServiceModel));
-
-
-    }
-
-    @Test
-    @MockitoSettings(strictness = Strictness.WARN)
-    public void testIncompleteOrderMethodWithValidServiceModel() throws Exception {
-
-        orderAddServiceModel.setClosed(true);
-
-        when(mockValidationUtil.isValid(existingOrderAddServiceModel)).thenReturn(true);
-        when(mockOrderRepository.saveAndFlush(any(OrderEntity.class)))
-                .thenReturn(orderEntity);
-
-        orderServiceToTest.incompleteOrder(existingOrderAddServiceModel);
-
-        ArgumentCaptor<OrderEntity> argument = ArgumentCaptor.forClass(OrderEntity.class);
-        Mockito.verify(mockOrderRepository, times(1)).saveAndFlush(argument.capture());
-        OrderEntity newOrderActual = argument.getValue();
-
-        Assertions.assertEquals(existingOrderAddServiceModel.getId(), newOrderActual.getId());
-        Assertions.assertFalse(newOrderActual.isClosed());
-
+        Assertions.assertThrows(EntityNotFoundException.class, () -> this. itemServiceToTest.block(1L));
 
     }
 
     @Test
     @MockitoSettings(strictness = Strictness.WARN)
-    public void testIncompleteOrderMethodThrowsConstraintViolationException() throws Exception {
+    public void testUnlockMethod() {
 
-        when(mockValidationUtil.isValid(existingOrderAddServiceModel)).thenReturn(false);
+        itemEntity.setBlocked(true);
 
-        Assertions.assertThrows(ConstraintViolationException.class, () -> this.orderServiceToTest.incompleteOrder(existingOrderAddServiceModel));
+        when(mockItemRepository.findById(any(Long.class))).thenReturn(Optional.of(itemEntity));
 
-    }
+        itemServiceToTest.unblock(1L);
 
-    @Test
-    @MockitoSettings(strictness = Strictness.WARN)
-    public void testArchiveOrderMethodWithValidServiceModel() throws Exception {
+        ArgumentCaptor<ItemEntity> argument = ArgumentCaptor.forClass(ItemEntity.class);
+        Mockito.verify(mockItemRepository, times(1)).saveAndFlush(argument.capture());
+        ItemEntity newItemActual = argument.getValue();
 
-        when(mockValidationUtil.isValid(existingOrderAddServiceModel)).thenReturn(true);
-        when(mockOrderRepository.saveAndFlush(any(OrderEntity.class)))
-                .thenReturn(orderEntity);
-
-        orderServiceToTest.archiveOrder(existingOrderAddServiceModel);
-
-        ArgumentCaptor<OrderEntity> argument = ArgumentCaptor.forClass(OrderEntity.class);
-        Mockito.verify(mockOrderRepository, times(1)).saveAndFlush(argument.capture());
-        OrderEntity newOrderActual = argument.getValue();
-
-        Assertions.assertEquals(existingOrderAddServiceModel.getId(), newOrderActual.getId());
-        Assertions.assertTrue(newOrderActual.isArchives());
-
+        Assertions.assertFalse(newItemActual.isBlocked());
 
     }
 
     @Test
     @MockitoSettings(strictness = Strictness.WARN)
-    public void testArchiveOrderMethodThrowsConstraintViolationException() throws Exception {
+    public void testUnlockMethodThrowsEntityNotFoundException() {
 
-        when(mockValidationUtil.isValid(existingOrderAddServiceModel)).thenReturn(false);
+        when(mockItemRepository.findById(any(Long.class))).thenReturn(Optional.empty());
 
-        Assertions.assertThrows(ConstraintViolationException.class, () -> this.orderServiceToTest.archiveOrder(existingOrderAddServiceModel));
-
-    }
-
-
-    private OrderAddServiceModel createExistingOrderAddServiceModel() {
-
-        OrderAddServiceModel orderAddServiceModel = this.createOrderAddServiceModel();
-        orderAddServiceModel.setId(1L);
-        return orderAddServiceModel;
-    }
-
-    private OrderViewServiceModel createOrderViewServiceModel() {
-
-        OrderViewServiceModel orderViewServiceModel = new OrderViewServiceModel();
-        orderViewServiceModel.setId(1L);
-        Set<OrderLineViewServiceModel> orderLineViewServiceModels = new HashSet<>();
-        orderLineViewServiceModels.add(this.createOrderLineViewServiceModel());
-        orderViewServiceModel.setOrderLineEntities(orderLineViewServiceModels);
-        orderViewServiceModel.setCustomer(this.createCustomerServiceModel());
-        orderViewServiceModel.setTotal(new BigDecimal("100"));
-
-        return orderViewServiceModel;
-    }
-
-    private OrderLineViewServiceModel createOrderLineViewServiceModel() {
-
-        OrderLineViewServiceModel orderLineViewServiceModel = new OrderLineViewServiceModel();
-        orderLineViewServiceModel.setItem(this.createItemViewServiceModel());
-        orderLineViewServiceModel.setQuantity(1);
-        orderLineViewServiceModel.setSubtotal(new BigDecimal("100"));
-
-        return orderLineViewServiceModel;
+        Assertions.assertThrows(EntityNotFoundException.class, () -> this. itemServiceToTest.unblock(1L));
 
     }
 
-    private ItemViewServiceModel createItemViewServiceModel() {
+    @Test
+    @MockitoSettings(strictness = Strictness.WARN)
+    public void testEditMethodWithValidServiceModel() throws Exception {
 
-        ItemViewServiceModel itemViewServiceModel = new ItemViewServiceModel();
-        itemViewServiceModel.setId(1L);
-        itemViewServiceModel.setName("item_name");
-        itemViewServiceModel.setDescription("item_description");
-        itemViewServiceModel.setLocation("item_location");
-        itemViewServiceModel.setImg("item_img");
-        itemViewServiceModel.setPrice(new BigDecimal("100"));
 
-        itemViewServiceModel.setCategory("category_name");
-        itemViewServiceModel.setSupplier("supplier_name");
 
-        return itemViewServiceModel;
+
+        when(mockValidationUtil.isValid(any(ItemAddServiceModel.class))).thenReturn(true);
+        when(mockCategoryService.getAllCategoryNames()).thenReturn(List.of(CATEGORY_NAME));
+        when(mockCategoryService.findByName(any(String.class))).thenReturn(categoryEntity);
+        when(mockSupplierService.getAllSupplierNames()).thenReturn(List.of(SUPPLIER_NAME));
+        when(mockSupplierService.findByName(any(String.class))).thenReturn(supplierEntity);
+        when(mockItemRepository.findById(any(Long.class))).thenReturn(Optional.of(itemEntity));
+        when(mockItemRepository.saveAndFlush(any(ItemEntity.class))).thenReturn(itemEntity);
+
+        itemServiceToTest.edit(existingItemAddServiceModel);
+
+        ArgumentCaptor<ItemEntity> argument = ArgumentCaptor.forClass(ItemEntity.class);
+        Mockito.verify(mockItemRepository, times(1)).saveAndFlush(argument.capture());
+        ItemEntity itemEntityActual = argument.getValue();
+
+        Assertions.assertEquals(itemAddServiceModel.getName(), itemEntityActual.getName());
+
     }
 
+    @Test
+    @MockitoSettings(strictness = Strictness.WARN)
+    public void testEditMethodThrowsConstraintViolationException() throws Exception {
 
-    private OrderAddServiceModel createOrderAddServiceModel() {
 
-        OrderAddServiceModel orderAddServiceModel = new OrderAddServiceModel();
-        Set<OrderLineAddServiceModel> orderLineAddServiceModels = new HashSet<>();
-        orderLineAddServiceModels.add(this.createOrderLineAddServiceModel());
-        orderAddServiceModel.setOrderLineEntities(orderLineAddServiceModels);
-        orderAddServiceModel.setCustomer(this.createCustomerServiceModel());
-        orderAddServiceModel.setTotal(new BigDecimal("100"));
+        when(mockValidationUtil.isValid(existingItemAddServiceModel)).thenReturn(false);
 
-        return orderAddServiceModel;
+        Assertions.assertThrows(ConstraintViolationException.class, () -> this.itemServiceToTest.edit(existingItemAddServiceModel));
+
     }
 
-    private OrderLineAddServiceModel createOrderLineAddServiceModel() {
+    @Test
+    @MockitoSettings(strictness = Strictness.WARN)
+    public void testEditMethodThrowsNotFoundEntityExceptionForItemEntity() throws Exception {
 
-        OrderLineAddServiceModel orderLineAddServiceModel = new OrderLineAddServiceModel();
-        orderLineAddServiceModel.setItem(this.createItemAddServiceModel());
-        orderLineAddServiceModel.setQuantity(1);
-        orderLineAddServiceModel.setSubtotal(new BigDecimal("100"));
+        when(mockValidationUtil.isValid(existingItemAddServiceModel)).thenReturn(true);
+        when(mockItemRepository.findById(any(Long.class))).thenReturn(Optional.empty());
 
-        return orderLineAddServiceModel;
+        Assertions.assertThrows(EntityNotFoundException.class, () -> this.itemServiceToTest.edit(existingItemAddServiceModel));
+
     }
 
-    private ItemAddServiceModel createItemAddServiceModel() {
+    private ItemAddServiceModel createExistingItemAddServiceModel() {
 
-        ItemAddServiceModel itemAddServiceModel = new ItemAddServiceModel();
+        ItemAddServiceModel itemAddServiceModel = this.createItemAddServiceModel();
         itemAddServiceModel.setId(1L);
-        itemAddServiceModel.setName("item_name");
-        itemAddServiceModel.setDescription("item_description");
-        itemAddServiceModel.setLocation("item_location");
-        MockMultipartFile img = this.createMultipartFile();
-        itemAddServiceModel.setImg(img);
-        itemAddServiceModel.setPrice(new BigDecimal("100"));
-
-        itemAddServiceModel.setCategory("category_name");
-        itemAddServiceModel.setSupplier("supplier_name");
 
         return itemAddServiceModel;
     }
 
-    private MockMultipartFile createMultipartFile(){
-        MockMultipartFile file
-                = new MockMultipartFile(
-                "file",
-                "hello.txt",
-                MediaType.TEXT_PLAIN_VALUE,
-                "Hello, World!".getBytes()
-        );
-        return file;
-    }
 
-
-    private CustomerServiceModel createCustomerServiceModel() {
-
-        CustomerServiceModel customerServiceModel = new CustomerServiceModel();
-        customerServiceModel.setCompanyName("company_name");
-        customerServiceModel.setPersonName("person_name");
-        customerServiceModel.setEmail("customer@mail.bg");
-
-        AddressServiceModel addressServiceModel = new AddressServiceModel();
-        addressServiceModel.setRegion("Sofia city");
-        addressServiceModel.setCity("Sofia");
-        addressServiceModel.setStreet("Tintyava 15");
-        addressServiceModel.setPhone("02111222");
-
-        customerServiceModel.setAddress(addressServiceModel);
-
-        return customerServiceModel;
-    }
-
-    private OrderEntity createExistingOrderEntity() {
-
-        OrderEntity orderEntity = new OrderEntity();
-
-        orderEntity.setId(1L);
-        Set<OrderLineEntity> orderLineEntities = new HashSet<>();
-        orderLineEntities.add(this.createOrderLineEntity());
-        orderEntity.setOrderLineEntities(orderLineEntities);
-        orderEntity.setCustomer(this.createExistingCustomerEntity());
-        orderEntity.setTotal(new BigDecimal("100"));
-
-        return orderEntity;
-    }
-
-    private OrderLineEntity createOrderLineEntity() {
-
-        OrderLineEntity orderLineEntity = new OrderLineEntity();
-
-        orderLineEntity.setItem(this.createExistingItemEntity());
-        orderLineEntity.setQuantity(1);
-        orderLineEntity.setSubtotal(new BigDecimal("100"));
-
-        return orderLineEntity;
-    }
-
-    private ItemEntity createItemEntity() {
+    private ItemEntity createExistingItemEntity() {
 
         ItemEntity itemEntity = new ItemEntity();
+        itemEntity.setId(1L);
         itemEntity.setName("item_name");
         itemEntity.setDescription("item_description");
         itemEntity.setLocation("item_location");
@@ -508,14 +372,6 @@ public class OrderServiceUnitTests {
         itemEntity.setCategory(categoryEntity);
         SupplierEntity supplierEntity = this.createExistingSupplierEntity();
         itemEntity.setSupplier(supplierEntity);
-
-        return itemEntity;
-    }
-
-    private ItemEntity createExistingItemEntity() {
-
-        ItemEntity itemEntity = this.createItemEntity();
-        itemEntity.setId(1L);
 
         return itemEntity;
     }
@@ -555,32 +411,31 @@ public class OrderServiceUnitTests {
         return categoryEntity;
     }
 
-    private CustomerEntity createCustomerEntity() {
+    private ItemAddServiceModel createItemAddServiceModel() {
 
-        CustomerEntity customerEntity = new CustomerEntity();
-        customerEntity.setCompanyName("company_name");
-        customerEntity.setPersonName("person_name");
-        customerEntity.setEmail("customer@mail.bg");
-        customerEntity.setBlocked(false);
+        ItemAddServiceModel itemAddServiceModel = new ItemAddServiceModel();
+        itemAddServiceModel.setName("item_name");
+        itemAddServiceModel.setDescription("item_description");
+        itemAddServiceModel.setLocation("item_location");
+        MockMultipartFile img = this.createMultipartFile();
+        itemAddServiceModel.setImg(img);
+        itemAddServiceModel.setPrice(new BigDecimal("100"));
 
-        AddressEntity addressEntity = new AddressEntity();
-        addressEntity.setRegion("Sofia city");
-        addressEntity.setCity("Sofia");
-        addressEntity.setStreet("Tintyava 15");
-        addressEntity.setPhone("02111222");
+        itemAddServiceModel.setCategory("category_name");
+        itemAddServiceModel.setSupplier("supplier_name");
 
-        customerEntity.setAddressEntity(addressEntity);
-        return customerEntity;
+        return itemAddServiceModel;
     }
 
-    private CustomerEntity createExistingCustomerEntity(){
-
-        CustomerEntity customerEntity = this.createCustomerEntity();
-        customerEntity.setId(1L);
-        customerEntity.getAddressEntity().setId(1L);
-
-        return customerEntity;
-
+    private MockMultipartFile createMultipartFile(){
+        MockMultipartFile file
+                = new MockMultipartFile(
+                "file",
+                "hello.txt",
+                MediaType.IMAGE_JPEG_VALUE,
+                "Hello, World!".getBytes()
+        );
+        return file;
     }
 
     private Pageable initPageable() {
@@ -592,6 +447,5 @@ public class OrderServiceUnitTests {
 
         return PageRequest.of(page, pageSize, sort);
     }
-
 
 }

@@ -1,7 +1,7 @@
 {
   "id": 2,
-  "createdOn": "06-04-2021 20:05:13",
-  "updatedOn": "06-04-2021 20:05:20",
+  "createdOn": "13-10-2021 22:09:27",
+  "updatedOn": "13-10-2021 22:09:29",
   "customer": {
     "id": 2,
     "companyName": "Company_Name_2",
@@ -24,6 +24,7 @@
         "name": "Name_2",
         "description": "description_2",
         "price": 200.00,
+        "stock": 20,
         "location": "Location_2",
         "category": "laptops",
         "supplier": "Supplier_2",

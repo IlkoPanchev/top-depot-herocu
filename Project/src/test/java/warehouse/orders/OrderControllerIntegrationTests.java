@@ -323,23 +323,10 @@ public class OrderControllerIntegrationTests {
 
     }
 
+
+
     @Test
     @Order(19)
-    @WithMockUser(username = "manager", roles = {"USER", "MANAGER"})
-    public void testEditOrderCompleteMethod() throws Exception {
-
-        mockMvc.perform(MockMvcRequestBuilders.
-                get("/orders/edit/complete").sessionAttr("editOrderData", editOrderData)).
-                andExpect(status().is3xxRedirection()).
-                andExpect(view().name("redirect:/orders/all/pageable"));
-
-       OrderViewServiceModel orderViewServiceModel =  this.orderService.findById(2L);
-       Assertions.assertTrue(orderViewServiceModel.isClosed());
-
-    }
-
-    @Test
-    @Order(20)
     @WithMockUser(username = "manager", roles = {"USER", "MANAGER"})
     public void testEditOrderCancelMethod() throws Exception {
 
@@ -352,7 +339,7 @@ public class OrderControllerIntegrationTests {
     }
 
     @Test
-    @Order(21)
+    @Order(20)
     @WithMockUser(username = "user")
     public void testOrderCompleteOpenMethod() throws Exception {
 
@@ -366,7 +353,7 @@ public class OrderControllerIntegrationTests {
     }
 
     @Test
-    @Order(22)
+    @Order(21)
     @WithMockUser(username = "user")
     public void testOrderArchiveOpenMethod() throws Exception {
 
@@ -380,7 +367,7 @@ public class OrderControllerIntegrationTests {
     }
 
     @Test
-    @Order(23)
+    @Order(22)
     @WithMockUser(username = "user")
     public void testOrderCompleteMethod() throws Exception {
 
@@ -393,7 +380,7 @@ public class OrderControllerIntegrationTests {
     }
 
     @Test
-    @Order(24)
+    @Order(23)
     @WithMockUser(username = "user")
     public void testOrderIncompleteMethod() throws Exception {
 
@@ -406,7 +393,7 @@ public class OrderControllerIntegrationTests {
     }
 
     @Test
-    @Order(25)
+    @Order(24)
     @WithMockUser(username = "user")
     public void testOrderArchiveMethod() throws Exception {
 
@@ -419,7 +406,7 @@ public class OrderControllerIntegrationTests {
     }
 
     @Test
-    @Order(26)
+    @Order(25)
     @WithMockUser(username = "user")
     public void testCompleteCancelMethod() throws Exception {
 
@@ -432,7 +419,7 @@ public class OrderControllerIntegrationTests {
     }
 
     @Test
-    @Order(27)
+    @Order(26)
     @WithMockUser(username = "user")
     public void testArchiveViewMethod() throws Exception {
 
@@ -447,7 +434,7 @@ public class OrderControllerIntegrationTests {
     }
 
     @Test
-    @Order(28)
+    @Order(27)
     @WithMockUser(username = "user")
     public void testArchiveBackMethod() throws Exception {
 

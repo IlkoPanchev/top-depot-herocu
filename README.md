@@ -1,4 +1,4 @@
-# top-depot-herocu
+# Top Depot
 Java Spring Thymeleaf MVC Web App. Herocu deployment. 
 Link to the login page: https://top-depot-09e0c0c3e37a.herokuapp.com/login  
 

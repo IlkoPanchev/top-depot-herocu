@@ -1,13 +1,12 @@
 # Top Depot
-Java Spring Thymeleaf MVC Web App. Herocu deployment. 
+Java Spring Thymeleaf MVC Web App. Deployed and available for test in Heroku.   
+After accessing the login link the page will be accessible in about 30-60 sec. This time is needed to "wake up" application(a feature of the subscription plan in Heroku). 
 Link to the login page: https://top-depot-09e0c0c3e37a.herokuapp.com/login  
 
 Top Depot is a small warehouse application created as a coursework at the end of Spring Advanced module in SoftUni.  
 The main idea is that managers can create orders and these orders can be processed and completed by ordinary employees. Newly created order will be automatically deleted by scheduled CRON job if its status has not been changed within a week.
 All actions user-order are recorded in a log file(implemented with AOP).
 Sorting, pagination and different types of reports based on Google charts are available for managers and employees.  
-
-After accessing the login link the page will be accessible in about 30-60 sec. This time is needed to "wake up" application(a feature of the subscription plan in Herocu).  
 
 Credentials:  
 - &emsp;admin:  

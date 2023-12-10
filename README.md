@@ -7,6 +7,7 @@ Top Depot is a small warehouse application created as a coursework at the end of
 The main idea is that managers can create orders and these orders can be processed and completed by ordinary employees. Newly created order will be automatically deleted by scheduled <b>CRON</b> job if its status has not been changed within a week.
 All actions user-order are recorded in a log file(implemented with <b>AOP</b>).
 Sorting, pagination and different types of reports based on Google charts are available for managers and employees.  
+Almost 100% coverage of unit and integration tests  of methods and classes.
 
 <b>Credentials</b>:  
 - &emsp;admin:  
